@@ -38,14 +38,18 @@ export default function SubScores({ trustScore, vinAvailable }) {
     {
       icon: '📞',
       label: 'Seller Credibility',
-      score: trustScore.seller_credibility_subscore,
-      description: 'Based on consistency and completeness of seller responses during the AI verification call.'
+      score: trustScore.seller_credibility_subscore ?? null,
+      description: trustScore.seller_credibility_subscore != null
+        ? 'Based on consistency and completeness of seller responses during the AI verification call.'
+        : 'Seller call did not return a score. This sub-score was not included in the composite calculation.'
     },
     {
       icon: '💰',
       label: 'Price Fairness',
-      score: trustScore.price_fairness_subscore,
-      description: 'Asking price compared to live market median for equivalent vehicles on Dubizzle and YallaMotor.'
+      score: trustScore.price_fairness_subscore ?? null,
+      description: trustScore.price_fairness_subscore != null
+        ? 'Asking price compared to live market median for equivalent vehicles on Dubizzle and YallaMotor.'
+        : 'Not enough comparable listings found. This sub-score was not included in the composite calculation.'
     },
     {
       icon: '🔍',
@@ -62,7 +66,7 @@ export default function SubScores({ trustScore, vinAvailable }) {
       <h3 className="text-base font-bold text-gray-800 mb-3">Sub-Scores</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {scores.map((s) => (
-          s.score !== null ? (
+          s.score != null ? (
             <SubScoreCard key={s.label} {...s} />
           ) : (
             <div key={s.label} className="rounded-xl p-5 border border-gray-100 bg-gray-50">

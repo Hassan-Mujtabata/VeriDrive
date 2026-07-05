@@ -15,7 +15,8 @@ Full pipeline:
 """
 
 import asyncio
-import uuid, threading, os, sys
+import uuid, threading, os, sys, logging, traceback
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +24,20 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Logger ────────────────────────────────────────────────────────────────────
+_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "veridrive.log")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(_LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+log = logging.getLogger("veridrive")
+log.info(f"VeriDrive started — logging to {_LOG_FILE}")
 
 # ── Sub-project paths ─────────────────────────────────────────────────────────
 _BASE = os.path.dirname(os.path.abspath(__file__))
@@ -77,6 +92,7 @@ def health():
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 def _run_pipeline(request_id: str, listing_url: str):
+    log.info(f"[pipeline:{request_id}] Starting — URL: {listing_url}")
     try:
         from call_veridrive      import make_verification_call
         from dubizzle_scraper    import scrape_listing
@@ -85,11 +101,16 @@ def _run_pipeline(request_id: str, listing_url: str):
         from trust_score_engine  import compute_trust_score
 
         # ── Step 1: Scrape listing ─────────────────────────────────────────
-        print("[pipeline] Step 1 — Scraping listing...")
-        listing       = asyncio.run(scrape_listing(listing_url))
-        seller_number = listing["seller_phone"]
-        seller_name   = listing.get("seller_name", "Seller")
-        print(f"[pipeline] Scraped: {listing.get('year')} {listing.get('make')} {listing.get('model')}")
+        log.info(f"[pipeline:{request_id}] Step 1 — Scraping listing...")
+        try:
+            listing       = asyncio.run(scrape_listing(listing_url))
+            seller_number = listing["seller_phone"]
+            seller_name   = listing.get("seller_name", "Seller")
+            log.info(f"[pipeline:{request_id}] Scraped: {listing.get('year')} {listing.get('make')} {listing.get('model')}")
+        except Exception as e:
+            log.error(f"[pipeline:{request_id}] Step 1 FAILED — Scraper crashed:\n{traceback.format_exc()}")
+            _set_error(request_id, f"Scraper failed: {e}")
+            return
 
         # ── Steps 2 & 3: Call + Price analysis (parallel) ─────────────────
         # Price engine scrapes Dubizzle (~30-60s); call takes 2-5 min.
@@ -134,16 +155,24 @@ def _run_pipeline(request_id: str, listing_url: str):
             price_result = future_price.result()
 
         if not call_result.get("success"):
+            log.error(f"[pipeline:{request_id}] Call failed: {call_result.get('error')}")
             _set_error(request_id, call_result.get("error", "Call failed"), listing)
             return
 
         call_outcome = call_result.get("call_outcome") or (
             "completed" if call_result.get("call_status") == "ended" else call_result.get("call_status")
         )
+        log.info(f"[pipeline:{request_id}] Call outcome: {call_outcome} | duration: {call_result.get('duration_s')}s")
 
-        # ── Voicemail / no-answer — skip analysis, surface as red flag ────────
-        if call_outcome in ("voicemail", "not_answered"):
-            label = "Seller did not answer" if call_outcome == "not_answered" else "Call went to voicemail"
+        # ── Voicemail / no-answer / rejected — skip analysis, surface as red flag ──
+        if call_outcome in ("voicemail", "not_answered", "rejected", "failed"):
+            label = {
+                "not_answered": "Seller did not answer",
+                "voicemail":    "Call went to voicemail",
+                "rejected":     "Seller rejected the call",
+                "failed":       "Call failed to connect",
+            }.get(call_outcome, "Call unsuccessful")
+            log.warning(f"[pipeline:{request_id}] {label} — stopping pipeline")
             reports[request_id] = {
                 "request_id": request_id,
                 "status":     "complete",
@@ -180,9 +209,13 @@ def _run_pipeline(request_id: str, listing_url: str):
             print(f"[pipeline] ⚠️  {label} — report saved, pipeline stopped")
             return
         # ── Step 4: Analyze transcript ─────────────────────────────────────
-        print("[pipeline] Step 4 — Analyzing transcript...")
-        transcript = call_result.get("transcript", "")
-        analysis   = analyze_transcript(transcript, listing)
+        log.info(f"[pipeline:{request_id}] Step 4 — Analyzing transcript...")
+        try:
+            transcript = call_result.get("transcript", "")
+            analysis   = analyze_transcript(transcript, listing)
+        except Exception as e:
+            log.error(f"[pipeline:{request_id}] Step 4 FAILED — Transcript analysis crashed:\n{traceback.format_exc()}")
+            analysis = {}
 
         voice_data = {
             "available":                True,
@@ -232,13 +265,17 @@ def _run_pipeline(request_id: str, listing_url: str):
             print("[pipeline] Step 5 — No VIN extracted from transcript")
 
         # ── Step 6: Trust score ────────────────────────────────────────────
-        print("[pipeline] Step 6 — Computing trust score...")
-        trust = compute_trust_score(
-            listing_data=listing,
-            price_data=price_result,
-            vin_data=vin_data,
-            voice_data=voice_data,
-        )
+        log.info(f"[pipeline:{request_id}] Step 6 — Computing trust score...")
+        try:
+            trust = compute_trust_score(
+                listing_data=listing,
+                price_data=price_result,
+                vin_data=vin_data,
+                voice_data=voice_data,
+            )
+        except Exception as e:
+            log.error(f"[pipeline:{request_id}] Step 6 FAILED — Trust score crashed:\n{traceback.format_exc()}")
+            trust = {}
 
         # ── Step 7: Build final report ─────────────────────────────────────
         reports[request_id] = {
@@ -288,13 +325,21 @@ def _run_pipeline(request_id: str, listing_url: str):
                 "recording_wait_s": call_result.get("recording_wait_s"),
             },
         }
-        print(f"[pipeline] ✅ Done — composite trust score: {trust.get('composite_score')}")
+        log.info(f"[pipeline:{request_id}] ✅ Done — composite score: {trust.get('composite_score')}")
 
     except Exception as e:
+        log.error(f"[pipeline:{request_id}] UNHANDLED CRASH:\n{traceback.format_exc()}")
         _set_error(request_id, str(e))
+    finally:
+        # Safety net — if anything left the report stuck as "processing", fix it
+        # so the frontend never hangs on a timeout screen
+        if reports.get(request_id, {}).get("status") == "processing":
+            log.error(f"[pipeline:{request_id}] Report still stuck as processing — forcing error state")
+            _set_error(request_id, "Pipeline ended unexpectedly. Check veridrive.log for details.")
 
 
 def _set_error(request_id: str, message: str, listing: dict = None):
+    log.error(f"[pipeline:{request_id}] Error saved to report: {message}")
     reports[request_id] = {
         "request_id": request_id,
         "status":     "error",

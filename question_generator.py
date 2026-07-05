@@ -131,6 +131,20 @@ def generate_questions(listing_data: dict) -> dict:
             "Get a key from https://aistudio.google.com/apikey"
         )
 
+    # ── Guard: reject incomplete listing data before calling Gemini ──────────
+    REQUIRED_FIELDS = ["make", "model", "year"]
+    missing = [f for f in REQUIRED_FIELDS if not listing_data.get(f)]
+    if missing:
+        raise ValueError(
+            f"[questions] Listing data is incomplete — missing: {missing}. "
+            "Scraper likely failed. Aborting to prevent Vera calling with wrong car details."
+        )
+
+    SOFT_FIELDS = ["mileage_km", "asking_price_aed", "description"]
+    soft_missing = [f for f in SOFT_FIELDS if not listing_data.get(f)]
+    if soft_missing:
+        print(f"[questions] ⚠️  Soft fields missing (weaker questions): {soft_missing}")
+
     client = genai.Client(api_key=GEMINI_API_KEY)
 
     listing_summary = (

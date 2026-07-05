@@ -19,10 +19,24 @@ CLI test (backwards compat):
     python call_veridrive.py +971XXXXXXXXX
 """
 
-import os, json, time, requests
+import os, json, time, requests, logging, sys
 from datetime import datetime
 from twilio.rest import Client
 from dotenv import load_dotenv
+
+log = logging.getLogger("veridrive")
+if not log.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "veridrive.log"),
+                encoding="utf-8"
+            ),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
 
 load_dotenv()
 
@@ -101,11 +115,11 @@ def wait_for_recording(call_id: str, timing_state: dict) -> tuple:
     avg_expected = timing_state.get("avg_wait_s", RECORDING_DEFAULT_WAIT)
     sample_count = timing_state.get("sample_count", 0)
 
-    print(f"\n⏳ Waiting for recording to appear...")
+    log.info(f"\n⏳ Waiting for recording to appear...")
     if sample_count > 0:
-        print(f"   Expected ~{avg_expected}s (based on {sample_count} previous calls)")
+        log.info(f"   Expected ~{avg_expected}s (based on {sample_count} previous calls)")
     else:
-        print(f"   First run — using default {RECORDING_DEFAULT_WAIT}s baseline")
+        log.info(f"   First run — using default {RECORDING_DEFAULT_WAIT}s baseline")
 
     start = time.time()
 
@@ -113,7 +127,7 @@ def wait_for_recording(call_id: str, timing_state: dict) -> tuple:
         elapsed = time.time() - start
 
         if elapsed > RECORDING_MAX_WAIT:
-            print(f"   ⚠️  Gave up after {RECORDING_MAX_WAIT}s — no recording")
+            log.warning(f"   ⚠️  Gave up after {RECORDING_MAX_WAIT}s — no recording")
             return None, elapsed
 
         info          = get_call_info(call_id)
@@ -121,14 +135,14 @@ def wait_for_recording(call_id: str, timing_state: dict) -> tuple:
 
         if recording_url:
             waited = round(time.time() - start, 1)
-            print(f"   ✅ Recording available after {waited}s")
+            log.info(f"   ✅ Recording available after {waited}s")
             if sample_count > 0:
                 diff      = waited - avg_expected
                 direction = "faster" if diff < 0 else "slower"
-                print(f"   📊 {abs(diff):.1f}s {direction} than expected")
+                log.info(f"   📊 {abs(diff):.1f}s {direction} than expected")
             return recording_url, waited
 
-        print(f"   Checking... {elapsed:.0f}s elapsed (expected ~{avg_expected}s)   ", end="\r")
+        log.info(f"   Checking... {elapsed:.0f}s elapsed (expected ~{avg_expected}s)")
         time.sleep(RECORDING_POLL_INTERVAL)
 
 
@@ -183,24 +197,24 @@ def make_verification_call(
         call_id, transcript, recording_url, recording_wait_s, duration_s, etc.
     """
 
-    print("=" * 50)
-    print("  VeriDrive — Verification Call")
-    print("=" * 50)
+    log.info("=" * 50)
+    log.info("  VeriDrive — Verification Call")
+    log.info("=" * 50)
     if seller_name:
-        print(f"  Seller : {seller_name}")
-    print(f"  Number : {seller_number}")
-    print("=" * 50)
+        log.info(f"  Seller : {seller_name}")
+    log.info(f"  Number : {seller_number}")
+    log.info("=" * 50)
 
     timing_state = load_timing_state()
 
     # ── Step 0: Generate questions (if listing provided) ──────────────────────
     if listing and dynamic_variables is None:
         from question_generator import generate_questions, to_retell_dynamic_variables
-        print("\n🤖 Step 0 — Generating context-aware questions...")
+        log.info("\n🤖 Step 0 — Generating context-aware questions...")
         try:
             questions = generate_questions(listing)
             dynamic_variables = to_retell_dynamic_variables(questions)
-            print(f"   ✅ Questions generated")
+            log.info(f"   ✅ Questions generated")
         except Exception as e:
             return _error_payload(
                 f"Question generation failed: {str(e)}",
@@ -208,7 +222,7 @@ def make_verification_call(
             )
 
     # ── Step 1: Register with Retell ──────────────────────────────────────────
-    print("\n📋 Step 1 — Registering call with Retell...")
+    log.info("\n📋 Step 1 — Registering call with Retell...")
 
     payload = {
         "agent_id":            RETELL_AGENT_ID,
@@ -220,9 +234,9 @@ def make_verification_call(
 
     if dynamic_variables:
         payload["dynamic_variables"] = dynamic_variables
-        print(f"   ✅ Dynamic variables attached: {list(dynamic_variables.keys())}")
+        log.info(f"   ✅ Dynamic variables attached: {list(dynamic_variables.keys())}")
     else:
-        print(f"   ⚠️  No dynamic variables — Vera uses generic questions")
+        log.info(f"   ⚠️  No dynamic variables — Vera uses generic questions")
 
     resp = requests.post(
         "https://api.retellai.com/v2/register-phone-call",
@@ -246,8 +260,8 @@ def make_verification_call(
         )
 
     sip_uri = f"sip:{call_id}@sip.retellai.com"
-    print(f"   ✅ Registered — Call ID: {call_id}")
-    print(f"   ⏳ Waiting 5s for Retell SIP to be ready...")
+    log.info(f"   ✅ Registered — Call ID: {call_id}")
+    log.info(f"   ⏳ Waiting 5s for Retell SIP to be ready...")
     time.sleep(5)
 
     # ── Step 2: Twilio dials seller ───────────────────────────────────────────
@@ -255,7 +269,7 @@ def make_verification_call(
     RETRY_WAIT        = 30   # seconds to wait before retrying
 
     def _dial(attempt: int):
-        print(f"\n📞 Step 2 — Calling {seller_number} (attempt {attempt})...")
+        log.info(f"\n📞 Step 2 — Calling {seller_number} (attempt {attempt})...")
         twilio_client = Client(TWILIO_SID, TWILIO_TOKEN)
         tc = twilio_client.calls.create(
             to=seller_number,
@@ -263,7 +277,7 @@ def make_verification_call(
             twiml=f'<Response><Dial><Sip>{sip_uri}</Sip></Dial></Response>',
             timeout=30,
         )
-        print(f"   ✅ Twilio SID: {tc.sid}")
+        log.info(f"   ✅ Twilio SID: {tc.sid}")
         return tc
 
     def _retell_received_call(cid: str) -> bool:
@@ -277,16 +291,21 @@ def make_verification_call(
     twilio_call = _dial(1)
 
     # Wait 30s then check if Retell ever saw this call
-    print(f"   Checking if Retell received the call in {RETELL_CHECK_WAIT}s...")
-    time.sleep(RETELL_CHECK_WAIT)
+    log.info(f"   Checking if Retell received the call in {RETELL_CHECK_WAIT}s...")
+    _quick = get_call_info(call_id)
+    _quick_status = _quick.get("call_status", "")
+    if _quick_status in {"ended", "error"}:
+        log.info(f"   ⚡ Call already ended ({_quick_status}) — skipping 30s wait")
+    else:
+        time.sleep(RETELL_CHECK_WAIT)
 
     if not _retell_received_call(call_id):
-        print(f"   ⚠️  Retell has no record of call — Twilio/SIP failed to connect")
-        print(f"   ⏳ Waiting {RETRY_WAIT}s before retry...")
+        log.warning(f"   ⚠️  Retell has no record of call — Twilio/SIP failed to connect")
+        log.info(f"   ⏳ Waiting {RETRY_WAIT}s before retry...")
         time.sleep(RETRY_WAIT)
 
         # Re-register with Retell for a fresh call_id
-        print("\n📋 Re-registering call with Retell for retry...")
+        log.info("\n📋 Re-registering call with Retell for retry...")
         retry_payload = {
             "agent_id":             RETELL_AGENT_ID,
             "from_number":          FROM_NUMBER,
@@ -309,41 +328,67 @@ def make_verification_call(
                 call_id = new_call_id
                 sip_uri = f"sip:{call_id}@sip.retellai.com"
                 twilio_call = _dial(2)
-                print(f"   ✅ Retry registered — new Call ID: {call_id}")
+                log.info(f"   ✅ Retry registered — new Call ID: {call_id}")
             else:
-                print("   ❌ Retry registration returned no call_id — skipping retry")
+                log.info("   ❌ Retry registration returned no call_id — skipping retry")
         else:
-            print(f"   ❌ Retry registration failed: {retry_resp.status_code} — skipping")
+            log.error(f"   ❌ Retry registration failed: {retry_resp.status_code} — skipping")
 
-    print(f"   Waiting for call to complete...\n")
+    log.info(f"   Waiting for call to complete...\n")
 
     # ── Step 3: Poll until call ends ──────────────────────────────────────────
-    print("📊 Step 3 — Monitoring call...")
-    TERMINAL = {"ended", "error"}
+    log.info("📊 Step 3 — Monitoring call...")
+    TERMINAL    = {"ended", "error"}
+    MAX_POLL_S  = 300  # 5 min hard cap — Retell max_duration is 4 min so this is safe
+    poll_start  = time.time()
+    last_status = None
 
     while True:
-        info   = get_call_info(call_id)
-        status = info.get("call_status", "unknown")
-        print(f"   Status: {status}          ", end="\r")
+        if time.time() - poll_start > MAX_POLL_S:
+            log.warning(f"   ⚠️  Poll timeout after {MAX_POLL_S}s — ending monitoring")
+            status = "error"
+            break
+        try:
+            info   = get_call_info(call_id)
+            status = info.get("call_status", "unknown")
+        except Exception as e:
+            log.warning(f"   ⚠️  get_call_info failed: {e} — retrying in 5s")
+            time.sleep(5)
+            continue
+        if status != last_status:
+            log.info(f"   Status: {status}")
+            last_status = status
         if status in TERMINAL:
             break
         time.sleep(5)
 
     transcript = info.get("transcript", "")
     duration   = info.get("duration_ms", 0) // 1000
-    print(f"\n\n   ✅ Call ended — Status: {status} | Duration: {duration}s")
+    log.info(f"\n\n   ✅ Call ended — Status: {status} | Duration: {duration}s")
 
     if status != "ended":
-        return _error_payload(
-            f"Call did not complete: {status}",
-            seller_number, seller_name,
-            call_id=call_id, twilio_sid=twilio_call.sid,
-            duration_s=duration, transcript=transcript,
-        )
+        call_outcome = "rejected" if duration < NO_ANSWER_MAX_DURATION else "failed"
+        log.warning(f"Call {call_outcome} — Status: {status} | Duration: {duration}s")
+        return {
+            "success":           True,
+            "call_id":           call_id,
+            "twilio_sid":        twilio_call.sid,
+            "seller_number":     seller_number,
+            "seller_name":       seller_name,
+            "call_status":       status,
+            "call_outcome":      call_outcome,
+            "duration_s":        duration,
+            "transcript":        transcript,
+            "recording_url":     None,
+            "recording_wait_s":  None,
+            "dynamic_variables": dynamic_variables,
+            "timestamp":         datetime.now().isoformat(),
+            "audio_analysis":    None,
+        }
 
     # ── Voicemail / no-answer detection ──────────────────────────────────────
     if _is_voicemail(transcript):
-        print(f"   📭 Voicemail detected — ending call early")
+        log.info(f"   📭 Voicemail detected — ending call early")
         return {
             "success":           True,
             "call_id":           call_id,
@@ -362,7 +407,7 @@ def make_verification_call(
         }
 
     if duration < NO_ANSWER_MAX_DURATION:
-        print(f"   📵 Call not answered — duration {duration}s under threshold")
+        log.info(f"   📵 Call not answered — duration {duration}s under threshold")
         return {
             "success":           True,
             "call_id":           call_id,
@@ -381,14 +426,14 @@ def make_verification_call(
         }
 
     # ── Step 4: Smart wait for recording ─────────────────────────────────────
-    print(f"\n🎙️  Step 4 — Waiting for recording...")
+    log.info(f"\n🎙️  Step 4 — Waiting for recording...")
     recording_url, recording_wait_s = wait_for_recording(call_id, timing_state)
     new_avg = save_timing_state(timing_state, recording_wait_s)
-    print(f"   📊 Updated average wait: {new_avg}s saved to {TIMING_STATE_FILE}")
+    log.info(f"   📊 Updated average wait: {new_avg}s saved to {TIMING_STATE_FILE}")
 
     # ── Return payload ────────────────────────────────────────────────────────
-    print(f"\n✅ Call complete — returning payload to FastAPI")
-    print(f"   Run audio_analyzer.py --call_id {call_id} to analyze recording\n")
+    log.info(f"\n✅ Call complete — returning payload to FastAPI")
+    log.info(f"   Run audio_analyzer.py --call_id {call_id} to analyze recording\n")
 
     return {
         "success":              True,
@@ -418,7 +463,7 @@ if __name__ == "__main__":
     test_number = sys.argv[1] if len(sys.argv) > 1 else os.getenv("TEST_NUMBER")
 
     if not test_number:
-        print("❌ Provide a number: python call_veridrive.py +971XXXXXXXXX")
+        log.info("❌ Provide a number: python call_veridrive.py +971XXXXXXXXX")
         sys.exit(1)
 
     demo_listing = {
@@ -427,7 +472,7 @@ if __name__ == "__main__":
         "description": "First owner, no accidents, GCC spec.",
     }
 
-    print("\n🤖 Generating context-aware questions...")
+    log.info("\n🤖 Generating context-aware questions...")
     questions    = generate_questions(demo_listing)
     dynamic_vars = to_retell_dynamic_variables(questions)
 
@@ -437,8 +482,8 @@ if __name__ == "__main__":
         dynamic_variables=dynamic_vars,
     )
 
-    print("\n── Result ─────────────────────────────────")
+    log.info("\n── Result ─────────────────────────────────")
     for k, v in result.items():
         if k not in ("transcript", "dynamic_variables"):
-            print(f"  {k}: {v}")
-    print(f"\n  transcript: {result.get('transcript', '')[:200]}...")
+            log.info(f"  {k}: {v}")
+    log.info(f"\n  transcript: {result.get('transcript', '')[:200]}...")

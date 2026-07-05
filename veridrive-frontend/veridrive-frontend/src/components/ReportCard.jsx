@@ -54,12 +54,13 @@ export default function ReportCard({ report, onReset }) {
 
   const {
     listing = {},
-    trust_score = {},
+    trust_score: _ts,
     price_analysis,
     vin_report,
     red_flags,
     voice_call,
   } = report
+  const trust_score = _ts ?? {}
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -136,13 +137,19 @@ export default function ReportCard({ report, onReset }) {
               <VehicleHeader listing={listing} />
               <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                 <h3 className="text-base font-bold text-gray-800 mb-4 text-center">Composite Trust Score</h3>
-                <div className="flex justify-center mb-5">
-                  <TrustScoreGauge score={trust_score.composite_score} />
-                </div>
-                <Recommendation
-                  score={trust_score.composite_score}
-                  recommendation={trust_score.recommendation}
-                />
+                {trust_score.composite_score != null ? (
+                  <>
+                    <div className="flex justify-center mb-5">
+                      <TrustScoreGauge score={trust_score.composite_score} />
+                    </div>
+                    <Recommendation
+                      score={trust_score.composite_score}
+                      recommendation={trust_score.recommendation}
+                    />
+                  </>
+                ) : (
+                  <p className="text-center text-sm text-gray-400 py-6">Trust score not available for this report.</p>
+                )}
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                 <SubScores

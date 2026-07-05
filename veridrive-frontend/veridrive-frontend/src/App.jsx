@@ -44,10 +44,10 @@ function AppInner() {
           return
         }
         if (data.status === 'error') {
-          throw new Error(data.message || 'Verification failed.')
+          throw new Error(data.error || 'Verification failed.')
         }
       }
-      throw new Error('Verification timed out. Please try again.')
+      throw new Error('Verification is taking longer than expected — the call may still be running. Please check back in a moment or try again.')
     } catch (err) {
       setErrorMsg(err.message)
       setScreen('error')

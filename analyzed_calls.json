@@ -1,0 +1,124 @@
+{
+  "call_136e2972208099b2afc5c82f5de": {
+    "analyzed_at": "2026-06-24T11:19:54.236876",
+    "credibility_score": 45,
+    "call_worth_pursuing": false,
+    "result": {
+      "success": true,
+      "call_id": "call_136e2972208099b2afc5c82f5de",
+      "available": true,
+      "duration_s": 182,
+      "transcript": "Agent: Hi, \nUser: What is this? \nAgent: You're \nUser: Hello? \nAgent: speaking with Vera from VeriDrive. An interested buyer has asked for an independent check on your vehicle listing, and I'm here to help with that. The call should only take a couple of minutes. Is now a good time?\nUser: Yes. \nAgent: Thanks. I'll just need a few minutes to ask some questions about your vehicle for the buyer's peace of mind. Is that okay?\nUser: Yes. \nAgent: Great. First, can you confirm the make and model of the vehicle you're selling?\nUser: Nothing. Anything available. \nUser: Okay. Mercedes. I guess. \nAgent: Thanks. And what's the model of the Mercedes you're selling?\nUser: I haven't seen this. Okay. Give me anything. Two thousand one. Two thousand fifteen, I guess. \nAgent: All right. So, just to confirm, you're selling a Mercedes, and the model year is either 2001 or 2015, correct?\nUser: Two. Yep. \nAgent: Thanks for confirming. Next, can you tell me the current mileage on the vehicle?\nUser: I mean, it's Ten thousand. \nAgent: Got it. So the mileage is around ten thousand. Let me know if that's accurate.\nUser: Yes. Yes. \nAgent: Thanks. Has the vehicle ever been in any accidents or had major repairs?\nUser: Yes. \nAgent: Thanks for letting me know. Can you share a bit more about the accident or repairs?\nUser: Oh, because side script. \nAgent: Thanks for explaining. Was the damage on the side of the vehicle, and has it been fully repaired?\nUser: Yes. \nAgent: Appreciate it. Has the car had regular maintenance, like oil changes and inspections?\nUser: No. \nUser: I don't know. \nAgent: Thanks for your honesty. Are there any current issues or warning lights on the dashboard?\nUser: The gear is a bit old and, like, needs some updating. \nAgent: Thanks for sharing that. Besides the gear needing some updating, is there anything else a buyer should know about the car?\nUser: It's No. No. \nAgent: Thanks for confirming. That covers my questions. The buyer will get \nUser: (inaudible speech)\nAgent: this info to help with their decision. Is there anything else you'd like to mention about the vehicle?\nUser: No. Thank you. \nAgent: Thanks \nUser: Hello? \nAgent: for your time. If anything comes up, feel free to reach out.Have a great day!\nAgent: Just checking in\u2014are you still there? Let me know if you need more time or have any questions.\n",
+      "recording_url": "https://dxc03zgurdly9.cloudfront.net/24236c4f9fc777c1c682cad9eccb743d246e2704c416eac38be19803f8490161/recording.wav",
+      "analyzed_at": "2026-06-24T11:19:54.236715",
+      "credibility_score": 45,
+      "vin_mentioned": null,
+      "accident_claim": "The vehicle had a side scrape that has been fully repaired.",
+      "ownership_claim": null,
+      "confidence_level": "low",
+      "hesitation_detected": true,
+      "tone_assessment": "The seller's tone is somewhat hesitant and vague, with inconsistencies in providing basic vehicle details.",
+      "red_flags": [
+        "Uncertainty about the exact make, model, and year of the vehicle.",
+        "Lack of knowledge regarding regular maintenance.",
+        "Vague description of the accident and repairs.",
+        "Uncertainty about the gear issue needing updating."
+      ],
+      "call_worth_pursuing": false,
+      "summary": "The seller was uncertain about the exact make, model, and year of the Mercedes. They confirmed a side scrape that was repaired and mentioned an issue with the gear needing updating. However, the lack of clear information and uncertainty about maintenance raises significant concerns about the vehicle's condition and the seller's reliability.",
+      "raw_analysis": {
+        "credibility_score": 45,
+        "vin_mentioned": null,
+        "accident_claim": "The vehicle had a side scrape that has been fully repaired.",
+        "ownership_claim": null,
+        "confidence_level": "low",
+        "hesitation_detected": true,
+        "tone_assessment": "The seller's tone is somewhat hesitant and vague, with inconsistencies in providing basic vehicle details.",
+        "red_flags": [
+          "Uncertainty about the exact make, model, and year of the vehicle.",
+          "Lack of knowledge regarding regular maintenance.",
+          "Vague description of the accident and repairs.",
+          "Uncertainty about the gear issue needing updating."
+        ],
+        "call_worth_pursuing": false,
+        "summary": "The seller was uncertain about the exact make, model, and year of the Mercedes. They confirmed a side scrape that was repaired and mentioned an issue with the gear needing updating. However, the lack of clear information and uncertainty about maintenance raises significant concerns about the vehicle's condition and the seller's reliability."
+      }
+    }
+  },
+  "call_2bb5d0e8350f35f4e619222effb": {
+    "analyzed_at": "2026-06-25T11:02:23.717364",
+    "credibility_score": 85,
+    "call_worth_pursuing": true,
+    "model_used": "gemini-2.5-flash-lite",
+    "result": {
+      "success": true,
+      "call_id": "call_2bb5d0e8350f35f4e619222effb",
+      "available": true,
+      "duration_s": 192,
+      "transcript": "Agent: Hi, this is Vera calling from VeriDrive. A potential buyer asked us to do an independent verification of your vehicle listing. The call should only take a couple of minutes. Is now a good time to chat?\nUser: Yes. \nUser: please ask your question. \nAgent: Thanks. To start, can you confirm that you're the owner of the vehicle listed for sale?\nUser: Yes. I am the owner of the list. \nAgent: Great, thanks for confirming. Can you tell me the make and model of the vehicle you have listed?\nUser: Is that make is, I think, two thousand four. Yeah. It's two thousand. Yeah. I just checked it's two thousand four, and the model is Civic Honda Civic. \nAgent: Thanks for checking. So, it's a 2004 Honda Civic, correct?\nUser: Yes. \nAgent: Perfect. Could you also confirm the current mileage showing on the odometer?\nUser: Checking. It's fifteen thousand to three hundred and thirty four \nAgent: Thanks for that. So, the mileage is 15,334 miles, right?\nUser: Yeah. Exactly. \nUser: Be \nAgent: Thanks \nUser: precise. \nAgent: Thanks for confirming\u201415,334 miles. Next, has the vehicle ever been in any accidents or had major repairs?\nUser: Yeah. It's windshield broke. So I had to repair that. \nAgent: Thanks for letting me know. Other than the windshield repair, has the car had any other major repairs or accident damage?\nUser: No. \nAgent: Thanks for clarifying. Is the car currently registered and does it have a valid title in your name?\nUser: Yes. It does. \nAgent: Great, thanks. Last question\u2014are there any mechanical issues or warning lights on the dashboard right now?\nUser: No. That the car is in really good condition. \nAgent: Good to hear, thanks for sharing that. That covers everything I needed. If the buyer has more questions, they may reach out soon.Have a great day!\nUser: Thank you. \nAgent: You're welcome. Take care!\nUser: Any color? \nAgent: Sure, what's the color of your Honda Civic?\nUser: I said end the call. \nAgent: All right, I'll end the call now. Thanks for your time. Goodbye!\nAgent: Just checking in\u2014are you still there, or should I end the call for now?\n",
+      "recording_url": "https://dxc03zgurdly9.cloudfront.net/17842e384a761fbaa4c24dfa90f92129c544c2a44284fe8765c478aa6e8253ed/recording.wav",
+      "analyzed_at": "2026-06-25T11:02:23.716674",
+      "model_used": "gemini-2.5-flash-lite",
+      "credibility_score": 85,
+      "vin_mentioned": null,
+      "accident_claim": "The seller reported a windshield broke and was repaired, but no other major repairs or accident damage.",
+      "ownership_claim": "The seller confirmed they are the owner of the vehicle listed for sale and that it has a valid title in their name.",
+      "confidence_level": "high",
+      "hesitation_detected": false,
+      "tone_assessment": "The seller's tone was direct and cooperative throughout the call.",
+      "red_flags": [],
+      "call_worth_pursuing": true,
+      "summary": "The seller confirmed ownership of a 2004 Honda Civic with 15,334 miles. They reported a prior windshield repair but no other significant accident history or mechanical issues. The vehicle is registered and has a valid title.",
+      "raw_analysis": {
+        "credibility_score": 85,
+        "vin_mentioned": null,
+        "accident_claim": "The seller reported a windshield broke and was repaired, but no other major repairs or accident damage.",
+        "ownership_claim": "The seller confirmed they are the owner of the vehicle listed for sale and that it has a valid title in their name.",
+        "confidence_level": "high",
+        "hesitation_detected": false,
+        "tone_assessment": "The seller's tone was direct and cooperative throughout the call.",
+        "red_flags": [],
+        "call_worth_pursuing": true,
+        "summary": "The seller confirmed ownership of a 2004 Honda Civic with 15,334 miles. They reported a prior windshield repair but no other significant accident history or mechanical issues. The vehicle is registered and has a valid title."
+      }
+    }
+  },
+  "call_1da884c7b6361defe5bf992539c": {
+    "analyzed_at": "2026-06-25T11:21:50.428733",
+    "credibility_score": 90,
+    "call_worth_pursuing": true,
+    "model_used": "gemini-2.5-flash",
+    "result": {
+      "success": true,
+      "call_id": "call_1da884c7b6361defe5bf992539c",
+      "available": true,
+      "duration_s": 74,
+      "transcript": "Agent: Hi, this is Vera calling from VeriDrive. A potential buyer asked us to do an independent check on your vehicle listing. The call should only take a couple of minutes. Is now a good time to talk?\nUser: Yes. This comes from me. Yeah. \nAgent: Thanks. I just need to confirm a few quick details about your vehicle listing. Can you tell me the year, make, and model of the car you're selling?\nUser: Two thousand nineteen model Nissan Patrol. \nAgent: Got it, \nUser: And brown color. \nAgent: Thanks for letting me know. Is the Nissan Patrol currently registered and roadworthy?\nUser: Yes. \nAgent: All right. Is the vehicle under finance, or do you own it outright?\nUser: I own it. \nAgent: Thanks. Has the Nissan Patrol ever been in any accidents or had major repairs?\nUser: No. \nAgent: Okay. Are there any issues with the car that a buyer should know about?\nUser: None. \nAgent: Thanks for confirming. Is the vehicle available for inspection if the buyer wants to see it?\nUser: Yes. \nAgent: Great. That covers everything I need. You\u2019ll hear from us or the buyer soon. Have a good day!\n",
+      "recording_url": "https://dxc03zgurdly9.cloudfront.net/4a7633935eca348c963a7fa758338079e074354250491f0ba6429ff8cfc8ab02/recording.wav",
+      "analyzed_at": "2026-06-25T11:21:50.427861",
+      "model_used": "gemini-2.5-flash",
+      "credibility_score": 90,
+      "vin_mentioned": null,
+      "accident_claim": "The seller claims the vehicle has not been in any accidents or had major repairs.",
+      "ownership_claim": "The seller claims outright ownership of the vehicle.",
+      "confidence_level": "high",
+      "hesitation_detected": true,
+      "tone_assessment": "The seller maintained a cooperative and clear tone throughout the call, providing direct answers to all questions.",
+      "red_flags": [],
+      "call_worth_pursuing": true,
+      "summary": "The seller confirmed the vehicle as a 2019 Nissan Patrol, brown in color, which is currently registered and roadworthy. They stated they own the vehicle outright, and it has not been involved in any accidents or required major repairs. The seller also confirmed there are no known issues and the car is available for inspection.",
+      "raw_analysis": {
+        "credibility_score": 90,
+        "vin_mentioned": null,
+        "accident_claim": "The seller claims the vehicle has not been in any accidents or had major repairs.",
+        "ownership_claim": "The seller claims outright ownership of the vehicle.",
+        "confidence_level": "high",
+        "hesitation_detected": true,
+        "tone_assessment": "The seller maintained a cooperative and clear tone throughout the call, providing direct answers to all questions.",
+        "red_flags": [],
+        "call_worth_pursuing": true,
+        "summary": "The seller confirmed the vehicle as a 2019 Nissan Patrol, brown in color, which is currently registered and roadworthy. They stated they own the vehicle outright, and it has not been involved in any accidents or required major repairs. The seller also confirmed there are no known issues and the car is available for inspection."
+      }
+    }
+  }
+}

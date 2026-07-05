@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VeriDrive — System Architecture</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#131313;
+  background-image:linear-gradient(#1a1a1a 1px,transparent 1px),linear-gradient(90deg,#1a1a1a 1px,transparent 1px);
+  background-size:28px 28px;
+  font-family:'Inter',system-ui,sans-serif;
+  color:#fff;
+  padding:40px 32px 60px;
+  min-width:1300px;
+}
+
+/* ── Title ── */
+.title{text-align:center;margin-bottom:36px}
+.title h1{font-size:26px;font-weight:800;letter-spacing:-0.02em}
+.title p{font-size:13px;color:#666;margin-top:8px}
+.amber{color:#f59e0b} .green{color:#34d399}
+
+/* ── Boxes ── */
+.box{
+  background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;
+  padding:12px 20px;color:#fff;font-size:14px;font-weight:600;text-align:center;line-height:1.4;
+}
+.box .sub{font-size:11px;color:#888;font-weight:400;margin-top:4px}
+
+/* ── Arrows ── */
+.arr-d{text-align:center;color:#666;font-size:22px;padding:6px 0;line-height:1}
+.arr-d .lbl{font-size:11px;color:#555;margin-bottom:4px}
+.arr-r{color:#666;font-size:22px;padding:0 8px;line-height:1;align-self:center;flex-shrink:0}
+
+/* ── Top row ── */
+.top-row{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:12px}
+.user{display:flex;flex-direction:column;align-items:center;margin-right:14px}
+.user-icon{font-size:34px;margin-bottom:4px}
+.user-lbl{font-size:13px;color:#aaa}
+
+/* ── Main layout ── */
+.main{display:flex;gap:28px;align-items:flex-start;justify-content:center}
+
+/* ── Left panel ── */
+.left-panel{width:280px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0}
+.panel-label{font-size:11px;color:#555;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;font-weight:600}
+
+/* ── Reg flow ── */
+.reg-flow{display:flex;align-items:center;gap:0;margin-bottom:0;width:100%}
+.reg-box{
+  background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;
+  padding:8px 10px;font-size:11px;color:#fff;text-align:center;flex:1;
+}
+
+/* ── Pipeline ── */
+.pipeline{background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;width:100%;overflow:hidden}
+.pipeline-h{background:#242424;border-bottom:2px solid #3d3d3d;padding:10px 16px;font-size:13px;font-weight:700;text-align:center}
+.pipeline-step{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:12px;color:#ddd;border-bottom:1px solid #222}
+.pipeline-step:last-child{border-bottom:none}
+.pipeline-step .icon{font-size:16px;flex-shrink:0}
+.pipe-arr{text-align:center;color:#444;font-size:16px;padding:2px 0}
+
+/* ── Branches ── */
+.branches{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;width:100%}
+.br-box{
+  background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;
+  padding:7px 8px;font-size:11px;color:#ddd;text-align:center;flex:1 1 70px;
+}
+
+/* ── Right panel ── */
+.right-panel{display:flex;flex-direction:column;align-items:center}
+
+/* ── Endpoints ── */
+.endpoints{display:flex;gap:6px;margin-bottom:0}
+.ep{
+  background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;
+  padding:8px 14px;font-size:12px;font-family:monospace;color:#ddd;font-weight:600;
+}
+
+/* ── Modules ── */
+.modules{display:flex;gap:12px;align-items:flex-start;margin-top:0}
+
+/* ── Module card ── */
+.mod{background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;overflow:hidden}
+.mod-h{background:#242424;border-bottom:2px solid #3d3d3d;padding:10px 14px;text-align:center}
+.mod-h .mnum{font-size:14px;font-weight:700;color:#fff}
+.mod-h .msub{font-size:10px;color:#777;margin-top:3px}
+.mod-body{padding:4px 0}
+.step{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-bottom:1px solid #1e1e1e}
+.step:last-child{border-bottom:none}
+.step-n{
+  min-width:26px;height:26px;border-radius:50%;
+  border:1.5px solid #444;color:#aaa;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;
+}
+.step-t{font-size:12px;color:#ddd;font-weight:600}
+.step-d{font-size:10px;color:#666;margin-top:2px;line-height:1.4}
+.fix{font-size:10px;color:#f59e0b;margin-top:2px}
+.new{font-size:10px;color:#34d399;margin-top:2px}
+
+/* ── Ext services ── */
+.ext-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.ext{
+  background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;
+  padding:12px 12px;text-align:center;min-width:110px;flex:1 1 105px;
+}
+.ext.pending{opacity:0.5;border-style:dashed}
+.ext-icon{font-size:22px;margin-bottom:5px}
+.ext-name{font-size:12px;font-weight:700;color:#ddd}
+.ext-note{font-size:10px;color:#666;margin-top:3px}
+.ext-pend{font-size:10px;color:#777;font-style:italic;margin-top:3px}
+
+/* ── Bottom ── */
+.bottom{max-width:1100px;margin:0 auto}
+
+/* ── Section card ── */
+.sec{background:#1c1c1c;border:2px solid #3d3d3d;border-radius:6px;overflow:hidden}
+.sec-h{background:#242424;border-bottom:2px solid #3d3d3d;padding:12px 18px;font-size:14px;font-weight:700;text-align:center}
+.sec-h span{font-size:11px;color:#34d399;font-weight:400;margin-left:10px}
+.trust-grid{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:14px}
+.trust-item{
+  background:#242424;border:2px solid #3d3d3d;border-radius:6px;
+  padding:12px 14px;text-align:center;flex:1 1 130px;min-width:120px;
+}
+.trust-icon{font-size:22px;margin-bottom:6px}
+.trust-t{font-size:12px;font-weight:700;color:#ddd}
+.trust-d{font-size:10px;color:#666;margin-top:3px;line-height:1.4}
+
+/* ── Auth section ── */
+.auth-grid{display:flex;gap:8px;flex-wrap:wrap;padding:14px}
+.auth-item{
+  background:#242424;border:2px solid #3d3d3d;border-radius:6px;
+  padding:12px 14px;flex:1 1 160px;
+}
+.auth-t{font-size:12px;font-weight:700;color:#ddd;margin-bottom:4px}
+.auth-d{font-size:10px;color:#666;line-height:1.5}
+.auth-code{font-family:monospace;font-size:10px;color:#888;background:#1c1c1c;padding:2px 6px;border-radius:3px;display:inline-block;margin-top:3px}
+
+/* ── Report section ── */
+.report-grid{display:flex;gap:10px;flex-wrap:wrap;padding:14px 18px}
+.rep-item{display:flex;gap:8px;flex:1 1 200px;align-items:flex-start}
+.rep-check{color:#34d399;font-size:16px;flex-shrink:0;margin-top:1px}
+.rep-t{font-size:12px;font-weight:700;color:#ddd}
+.rep-d{font-size:10px;color:#666;margin-top:2px;line-height:1.4}
+.rep-foot{text-align:center;font-size:11px;color:#555;padding:6px 0 14px;border-top:1px solid #222}
+
+/* ── Legend ── */
+.legend{display:flex;gap:24px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+.legend span{font-size:11px;color:#555}
+</style>
+</head>
+<body>
+
+<!-- TITLE -->
+<div class="title">
+  <h1>VeriDrive — System Architecture</h1>
+  <p>BCS 410-1 Graduation Project &nbsp;·&nbsp; Canadian University Dubai &nbsp;·&nbsp; Supervisor: Dr. Yasir Faheem</p>
+</div>
+
+<!-- TOP ROW: User → Frontend ↔ FastAPI ↔ Supabase -->
+<div class="top-row">
+  <div class="user">
+    <div class="user-icon">🧍</div>
+    <div class="user-lbl">User</div>
+  </div>
+  <div class="arr-r">→</div>
+  <div class="box" style="width:220px">
+    React Frontend
+    <div class="sub">Vite · TailwindCSS · Supabase Auth</div>
+  </div>
+  <div class="arr-r">⟷</div>
+  <div class="box" style="width:240px">
+    FastAPI Backend
+    <div class="sub">Python 3.12 · Uvicorn · Threading</div>
+  </div>
+  <div class="arr-r">⟷</div>
+  <div class="box" style="width:200px">
+    Supabase PostgreSQL
+    <div class="sub">report_history · Row Level Security</div>
+  </div>
+</div>
+
+<div class="arr-d"><div>↓</div></div>
+
+<!-- MAIN TWO-COLUMN -->
+<div class="main">
+
+  <!-- ── LEFT: Frontend / User Flow ── -->
+  <div class="left-panel">
+    <div class="panel-label">Frontend / User Flow</div>
+
+    <!-- Registration flow -->
+    <div class="reg-flow">
+      <div class="reg-box">Start Registration</div>
+      <div class="arr-r" style="font-size:16px">→</div>
+      <div class="reg-box">CAPTCHA<br/>(Turnstile)</div>
+      <div class="arr-r" style="font-size:16px">→</div>
+      <div class="reg-box">OTP via<br/>Email</div>
+    </div>
+
+    <div class="arr-d"><div>↓</div></div>
+    <div class="box" style="width:160px">Paste Dubizzle URL</div>
+    <div class="arr-d"><div>↓</div></div>
+
+    <!-- Pipeline steps visible to user -->
+    <div class="pipeline" style="width:100%">
+      <div class="pipeline-h">Processing Pipeline</div>
+      <div class="pipeline-step"><span class="icon">🔍</span> Scraping Dubizzle Listing</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">🤖</span> Generating AI Verification Questions</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">📞</span> Calling Seller via Vera (Retell AI)</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">🎙️</span> Analyzing Call Audio + Transcript</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">🔎</span> Checking VIN History</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">💰</span> Analyzing Market Pricing</div>
+      <div class="pipe-arr">↓</div>
+      <div class="pipeline-step"><span class="icon">📊</span> Computing Trust Score</div>
+    </div>
+
+    <div class="arr-d"><div>↓</div></div>
+    <div class="box" style="width:160px;font-weight:700">View Report Card</div>
+    <div class="arr-d"><div>↓</div></div>
+
+    <div class="branches">
+      <div class="br-box">Report<br/>Overview</div>
+      <div class="br-box">Red<br/>Flags</div>
+      <div class="br-box">Price<br/>Analysis</div>
+      <div class="br-box">Seller<br/>Verification</div>
+      <div class="br-box">Vehicle<br/>History</div>
+    </div>
+
+    <div class="arr-d"><div>↓</div></div>
+    <div class="box" style="width:100%;font-size:12px">View History / Download PDF / Share</div>
+  </div>
+
+  <!-- ── RIGHT: Backend / System Flow ── -->
+  <div class="right-panel">
+    <div class="panel-label">Backend / System Flow</div>
+
+    <!-- API Endpoints -->
+    <div class="endpoints">
+      <div class="ep">POST /verify</div>
+      <div class="ep">GET /status</div>
+      <div class="ep">GET /report</div>
+      <div class="ep">GET /report/{id}</div>
+    </div>
+
+    <div class="arr-d"><div>↓</div></div>
+
+    <!-- 4 Modules -->
+    <div class="modules">
+
+      <!-- 1. Listing Scraper -->
+      <div class="mod" style="width:210px">
+        <div class="mod-h">
+          <div class="mnum">1. Listing Scraper</div>
+          <div class="msub">dubizzle_scraper.py · Playwright</div>
+        </div>
+        <div class="mod-body">
+          <div class="step"><div class="step-n">1.1</div><div><div class="step-t">Launch Browser</div><div class="step-d">Playwright Chromium · stealth mode · no webdriver flag</div></div></div>
+          <div class="step"><div class="step-n">1.2</div><div><div class="step-t">Navigate to URL</div><div class="step-d">Open Dubizzle listing page</div></div></div>
+          <div class="step"><div class="step-n">1.3</div><div><div class="step-t">Dismiss Popups</div><div class="step-d">X icon → DOM pattern match → Gemini AI fallback</div><div class="new">+ 3-layer smart dismissal</div></div></div>
+          <div class="step"><div class="step-n">1.4</div><div><div class="step-t">Extract __NEXT_DATA__</div><div class="step-d">All listing fields from Next.js JSON blob</div></div></div>
+          <div class="step"><div class="step-n">1.5</div><div><div class="step-t">Extract Phone Number</div><div class="step-d">Click "Show number" → tel: link</div></div></div>
+          <div class="step"><div class="step-n">1.6</div><div><div class="step-t">Return Listing JSON</div><div class="step-d">make · model · year · price · mileage · trim · specs</div></div></div>
+        </div>
+      </div>
+
+      <!-- 2. Price Intelligence -->
+      <div class="mod" style="width:210px">
+        <div class="mod-h">
+          <div class="mnum">2. Price Intelligence</div>
+          <div class="msub">price_engine.py · Playwright</div>
+        </div>
+        <div class="mod-body">
+          <div class="step"><div class="step-n">2.1</div><div><div class="step-t">Search Similar Listings</div><div class="step-d">Dubizzle · same make/model · ±3 yr range</div></div></div>
+          <div class="step"><div class="step-n">2.2</div><div><div class="step-t">Collect Comparables</div><div class="step-d">Up to 80 listings · up to 5 pages</div></div></div>
+          <div class="step"><div class="step-n">2.3</div><div><div class="step-t">Filter Mileage Band</div><div class="step-d">±60,000 km from target mileage</div></div></div>
+          <div class="step"><div class="step-n">2.4</div><div><div class="step-t">Normalize Prices</div><div class="step-d">15%/yr depreciation · mileage adj 1.5%/10k km</div></div></div>
+          <div class="step"><div class="step-n">2.5</div><div><div class="step-t">Remove Outliers</div><div class="step-d">IQR statistical filter Q1–Q3</div></div></div>
+          <div class="step"><div class="step-n">2.6</div><div><div class="step-t">Calculate Fair Price</div><div class="step-d">Fairness score 0–100 · verdict · recommended range</div></div></div>
+        </div>
+      </div>
+
+      <!-- 3. AI Voice Agent -->
+      <div class="mod" style="width:235px">
+        <div class="mod-h">
+          <div class="mnum">3. AI Voice Agent</div>
+          <div class="msub">call_veridrive.py · Retell AI · Twilio · Gemini</div>
+        </div>
+        <div class="mod-body">
+          <div class="step"><div class="step-n">3.1</div><div><div class="step-t">Generate Questions</div><div class="step-d">question_generator.py — car-enthusiast framing, model-specific, Gemini API</div></div></div>
+          <div class="step"><div class="step-n">3.2</div><div><div class="step-t">Register Call (Retell)</div><div class="step-d">Attach 6 dynamic variables to pre-built Vera agent</div></div></div>
+          <div class="step"><div class="step-n">3.3</div><div><div class="step-t">Twilio Dials Seller</div><div class="step-d">Outbound call → SIP bridge → Vera agent · timeout 30s</div></div></div>
+          <div class="step"><div class="step-n">3.4</div><div><div class="step-t">Vera Conducts Call</div><div class="step-d">Dynamic questions · voicemail detection · max 4 min</div></div></div>
+          <div class="step"><div class="step-n">3.5</div><div><div class="step-t">Retry If Needed</div><div class="step-d">Re-register + redial if Retell never received the call</div><div class="new">+ retry logic added</div></div></div>
+          <div class="step"><div class="step-n">3.6</div><div><div class="step-t">Analyze Transcript</div><div class="step-d">audio_analyzer.py → Gemini → seller_credibility_score · VIN · claims</div></div></div>
+        </div>
+      </div>
+
+      <!-- 4. VIN Cross-Reference -->
+      <div class="mod" style="width:220px">
+        <div class="mod-h">
+          <div class="mnum">4. VIN Cross-Reference</div>
+          <div class="msub">VinCheck service · port 8001 · teammates</div>
+        </div>
+        <div class="mod-body">
+          <div class="step"><div class="step-n">4.1</div><div><div class="step-t">Extract VIN</div><div class="step-d">From listing text OR transcript_analyzer output</div></div></div>
+          <div class="step"><div class="step-n">4.2</div><div><div class="step-t">NHTSA vPIC Decode</div><div class="step-d">Free US gov API · no key required · 130+ fields</div></div></div>
+          <div class="step"><div class="step-n">4.3</div><div><div class="step-t">VehicleDatabases Decode</div><div class="step-d">Paid API · full vehicle specs</div></div></div>
+          <div class="step"><div class="step-n">4.4</div><div><div class="step-t">Title Check</div><div class="step-d">Salvage · flood · theft records</div></div></div>
+          <div class="step"><div class="step-n">4.5</div><div><div class="step-t">Cross-Reference Claims</div><div class="step-d">Listing vs VIN record vs call answers</div></div></div>
+          <div class="step"><div class="step-n">4.6</div><div><div class="step-t">Return VIN Report</div><div class="step-d">accident_count · title_status · theft_record · ownership</div></div></div>
+        </div>
+      </div>
+
+    </div><!-- /modules -->
+
+    <!-- External Services -->
+    <div class="ext-row" style="max-width:900px">
+      <div class="ext"><div class="ext-icon">🚗</div><div class="ext-name">Dubizzle.ae</div><div class="ext-note">Modules 1 &amp; 2</div></div>
+      <div class="ext"><div class="ext-icon">🤖</div><div class="ext-name">Retell AI</div><div class="ext-note">Vera — pre-built agent</div></div>
+      <div class="ext"><div class="ext-icon">📞</div><div class="ext-name">Twilio</div><div class="ext-note">Outbound calls · SIP</div></div>
+      <div class="ext"><div class="ext-icon">✨</div><div class="ext-name">Gemini API</div><div class="ext-note">Questions · Transcript · Popup AI</div></div>
+      <div class="ext"><div class="ext-icon">🏛️</div><div class="ext-name">NHTSA vPIC</div><div class="ext-note">Free gov API · Module 4</div></div>
+      <div class="ext"><div class="ext-icon">🔍</div><div class="ext-name">VehicleDatabases</div><div class="ext-note">VIN decode + title check</div></div>
+      <div class="ext pending"><div class="ext-icon">🔜</div><div class="ext-name">WhatsApp API</div><div class="ext-note">Chassis number follow-up</div><div class="ext-pend">pending integration</div></div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /main -->
+
+<!-- BOTTOM -->
+<div style="height:24px"></div>
+<div class="bottom">
+
+  <div class="arr-d"><div class="lbl">All 4 module outputs aggregated</div><div>↓</div></div>
+  <div style="height:6px"></div>
+
+  <!-- 5. Trust Score Engine -->
+  <div class="sec">
+    <div class="sec-h">5. Trust Score Engine — trust_score_engine.py</div>
+    <div class="trust-grid">
+      <div class="trust-item"><div class="trust-icon">📥</div><div class="trust-t">Data Aggregation</div><div class="trust-d">All 4 module outputs combined</div></div>
+      <div class="trust-item"><div class="trust-icon">⚖️</div><div class="trust-t">Weighted Score</div><div class="trust-d">Seller 35% · Price 30% · VIN 35%</div></div>
+      <div class="trust-item"><div class="trust-icon">🔀</div><div class="trust-t">Weight Redistribution</div><div class="trust-d">Auto-rebalances if any module returned None</div></div>
+      <div class="trust-item"><div class="trust-icon">🚩</div><div class="trust-t">Red Flag Detection</div><div class="trust-d">High / medium / low severity flags</div></div>
+      <div class="trust-item"><div class="trust-icon">🔍</div><div class="trust-t">Discrepancy Detection</div><div class="trust-d">Listing vs VIN vs call answers cross-check</div></div>
+      <div class="trust-item"><div class="trust-icon">💡</div><div class="trust-t">Recommendations</div><div class="trust-d">Proceed / negotiate / avoid</div></div>
+      <div class="trust-item"><div class="trust-icon">📋</div><div class="trust-t">Report Generation</div><div class="trust-d">Builds final structured report JSON</div></div>
+    </div>
+  </div>
+
+  <div style="height:8px"></div>
+  <div class="arr-d"><div>↓</div></div>
+  <div style="height:8px"></div>
+
+  <!-- Auth / Supabase -->
+  <div class="sec" style="margin-bottom:10px">
+    <div class="sec-h">Auth &amp; Database — Supabase PostgreSQL</div>
+    <div class="auth-grid">
+      <div class="auth-item">
+        <div class="auth-t">Authentication Flow</div>
+        <div class="auth-d">Email + password signup → Cloudflare Turnstile CAPTCHA → 6-digit OTP email verification → Supabase session</div>
+        <div class="auth-code">supabase.auth.signUp() · verifyOtp() · signInWithPassword()</div>
+      </div>
+      <div class="auth-item">
+        <div class="auth-t">report_history Table</div>
+        <div class="auth-d">Stores every completed verification report tied to user_id · full report_json (jsonb) · listing meta · composite_score · checked_at timestamp</div>
+        <div class="auth-code">uuid · user_id · listing_url · make · model · year · composite_score · report_json · checked_at</div>
+      </div>
+      <div class="auth-item">
+        <div class="auth-t">Row Level Security</div>
+        <div class="auth-d">Users can only read and insert their own reports · enforced server-side via Supabase RLS policies · indexed on user_id + checked_at DESC</div>
+        <div class="auth-code">auth.uid() = user_id</div>
+      </div>
+      <div class="auth-item">
+        <div class="auth-t">Frontend Integration</div>
+        <div class="auth-d">AuthContext.jsx wraps app · useAuth() hook · report auto-saved after pipeline completes via history.js · viewable in HistoryScreen</div>
+        <div class="auth-code">saveReportToHistory(user.id, data)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arr-d"><div>↓</div></div>
+  <div style="height:8px"></div>
+
+  <!-- 6. Final Report -->
+  <div class="sec" style="border-color:#2a5c3a">
+    <div class="sec-h" style="background:#1a3028;border-bottom-color:#2a5c3a">6. Final Verification Report — displayed in ReportCard.jsx</div>
+    <div class="report-grid">
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Listing Information</div><div class="rep-d">Make, model, year, price, mileage, emirate, photos</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Composite Trust Score</div><div class="rep-d">0–100 gauge · sub-score breakdown · recommendation</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Market Price Analysis</div><div class="rep-d">Fair price · comparables count · price diff % · chart</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">VIN History Report</div><div class="rep-d">Decoded specs · title status · salvage · theft record</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Seller Verification Call</div><div class="rep-d">Transcript summary · credibility score · outcome</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Red Flags</div><div class="rep-d">Prioritised: high / medium / low severity</div></div></div>
+      <div class="rep-item"><div class="rep-check">✅</div><div><div class="rep-t">Export &amp; History</div><div class="rep-d">Download PDF · saved to Supabase · viewable anytime</div></div></div>
+    </div>
+    <div class="rep-foot">Saved to Supabase <code>report_history</code> table · accessible in History screen · exportable as PDF</div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="amber">★ fixed from original diagram</span>
+    <span class="green">+ added (was missing)</span>
+    <span style="color:#555">dashed border = pending / not yet integrated</span>
+  </div>
+
+</div><!-- /bottom -->
+</body>
+</html>

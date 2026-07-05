@@ -1,0 +1,4 @@
+anthropic>=0.109.0
+twilio
+python-dotenv
+requests

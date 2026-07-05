@@ -1,0 +1,22 @@
+{
+  "setup_complete": true,
+  "preferred_model": "gemini-2.5-flash",
+  "preferred_model_name": "Gemini 2.5 Flash",
+  "fallback_order": [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro"
+  ],
+  "setup_date": "2026-06-25T11:01:55.231543",
+  "last_successful_model": "gemini-2.5-flash",
+  "last_failure": null,
+  "failure_history": [
+    {
+      "model": "gemini-2.5-flash",
+      "error_type": "503 high demand",
+      "error": "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}",
+      "timestamp": "2026-06-25T11:02:13.752688"
+    }
+  ]
+}

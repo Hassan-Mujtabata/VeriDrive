@@ -213,7 +213,9 @@ def make_verification_call(
         log.info("\n🤖 Step 0 — Generating context-aware questions...")
         try:
             questions = generate_questions(listing)
-            dynamic_variables = to_retell_dynamic_variables(questions)
+            # Pass the listing too so car_name / car_summary / opening_line are
+            # always filled deterministically even if Gemini leaves them blank.
+            dynamic_variables = to_retell_dynamic_variables(questions, listing)
             log.info(f"   ✅ Questions generated")
         except Exception as e:
             return _error_payload(
@@ -233,7 +235,10 @@ def make_verification_call(
     }
 
     if dynamic_variables:
-        payload["dynamic_variables"] = dynamic_variables
+        # Retell's documented field is `retell_llm_dynamic_variables` — this is what
+        # fills {{opening_line}}, {{claim_questions}}, etc. in the agent prompt.
+        # (Sending the wrong key silently drops every variable → generic opener.)
+        payload["retell_llm_dynamic_variables"] = dynamic_variables
         log.info(f"   ✅ Dynamic variables attached: {list(dynamic_variables.keys())}")
     else:
         log.info(f"   ⚠️  No dynamic variables — Vera uses generic questions")
@@ -314,7 +319,7 @@ def make_verification_call(
             "max_duration_seconds": max_duration_s,
         }
         if dynamic_variables:
-            retry_payload["dynamic_variables"] = dynamic_variables
+            retry_payload["retell_llm_dynamic_variables"] = dynamic_variables
 
         retry_resp = requests.post(
             "https://api.retellai.com/v2/register-phone-call",
@@ -474,7 +479,7 @@ if __name__ == "__main__":
 
     log.info("\n🤖 Generating context-aware questions...")
     questions    = generate_questions(demo_listing)
-    dynamic_vars = to_retell_dynamic_variables(questions)
+    dynamic_vars = to_retell_dynamic_variables(questions, demo_listing)
 
     result = make_verification_call(
         seller_number=test_number,

@@ -212,7 +212,11 @@ def _run_pipeline(request_id: str, listing_url: str):
         log.info(f"[pipeline:{request_id}] Step 4 — Analyzing transcript...")
         try:
             transcript = call_result.get("transcript", "")
-            analysis   = analyze_transcript(transcript, listing)
+            analysis   = analyze_transcript(
+                transcript,
+                listing,
+                call_result.get("dynamic_variables"),
+            )
         except Exception as e:
             log.error(f"[pipeline:{request_id}] Step 4 FAILED — Transcript analysis crashed:\n{traceback.format_exc()}")
             analysis = {}

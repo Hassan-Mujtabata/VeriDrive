@@ -60,31 +60,54 @@ def _get_gemini_client() -> genai.Client:
     return _gemini_client
 
 
+def _get_gemini_keys() -> list:
+    """All Gemini keys for auto-failover: GEMINI_API_KEY, GEMINI_API_KEY_2..10,
+    then comma-separated GEMINI_API_KEYS. Blanks/dupes dropped, order kept."""
+    names  = ["GEMINI_API_KEY"] + [f"GEMINI_API_KEY_{i}" for i in range(2, 11)]
+    keys   = [os.getenv(n, "").strip() for n in names]
+    keys  += [k.strip() for k in os.getenv("GEMINI_API_KEYS", "").split(",")]
+    seen, out = set(), []
+    for k in keys:
+        if k and k not in seen:
+            seen.add(k)
+            out.append(k)
+    return out
+
+
+_QUOTA_MARKERS = ("429", "resource_exhausted", "quota", "exceeded", "insufficient")
+
+def _is_quota_error(error_str: str) -> bool:
+    e = error_str.lower()
+    return any(m in e for m in _QUOTA_MARKERS)
+
+
 # ── Available Gemini Models ───────────────────────────────────────────────────
+# Listed most capable first — we want accuracy, so the default (option 1) is the
+# strongest model and fallbacks step down to cheaper ones.
 AVAILABLE_MODELS = [
-    {
-        "id":          "gemini-2.5-flash-lite",
-        "name":        "Gemini 2.5 Flash Lite",
-        "description": "Fastest and cheapest. Good for most calls.",
-        "tier":        "budget",
-    },
     {
         "id":          "gemini-2.5-flash",
         "name":        "Gemini 2.5 Flash",
-        "description": "Better accuracy than Lite. Slightly more expensive.",
-        "tier":        "standard",
+        "description": "Most capable. Best accuracy — recommended default.",
+        "tier":        "best",
     },
     {
         "id":          "gemini-2.0-flash",
         "name":        "Gemini 2.0 Flash",
-        "description": "Reliable fallback. Stable availability.",
+        "description": "Strong and reliable. Stable availability.",
         "tier":        "standard",
     },
     {
         "id":          "gemini-2.0-flash-lite",
         "name":        "Gemini 2.0 Flash Lite",
-        "description": "Lighter 2.0 model. Good final fallback.",
-        "tier":        "stable",
+        "description": "Lighter, cheaper fallback.",
+        "tier":        "budget",
+    },
+    {
+        "id":          "gemini-2.5-flash-lite",
+        "name":        "Gemini 2.5 Flash Lite",
+        "description": "Fastest and cheapest. Final fallback.",
+        "tier":        "budget",
     },
 ]
 
@@ -326,133 +349,173 @@ Return this exact structure:
   "summary": <2-3 sentence plain English summary>
 }
 
-Scoring:
-- 80-100: Consistent, direct, confident answers
-- 60-79:  Minor inconsistencies but believable
-- 40-59:  Gaps, deflection, or vague answers
-- 0-39:   Red flags, contradictions, or refused questions
+Shared VeriDrive scoring band (same as the transcript analyzer, so scores are comparable):
+- 80-100: answers directly, consistently, with specific detail; matches the listing
+- 60-79:  mostly credible, minor gaps or slight hesitation
+- 40-59:  vague, deflecting, or answers that don't quite line up
+- 0-39:   contradictions, refusals, or clear red flags
 """
 
 
 # ── Gemini Analysis with Fallback ─────────────────────────────────────────────
 
-def analyze_audio_with_gemini(audio_path: str, transcript: str = "") -> tuple:
+def _build_car_context(car_context: dict | None) -> str:
+    """Turn a listing/variables dict into a short reference block for scoring."""
+    if not car_context:
+        return ""
+    lines = ["\n\nReference context (the call was about this car — do not read aloud):"]
+    ident = " ".join(str(car_context.get(k)) for k in ("year", "make", "model", "trim")
+                      if car_context.get(k))
+    if ident.strip():
+        lines.append(f"Listing: {ident.strip()}.")
+    elif car_context.get("car_summary"):
+        lines.append(f"Listing: {car_context.get('car_summary')}.")
+    if car_context.get("description"):
+        lines.append(f"The ad claimed: {car_context.get('description')}")
+    asked = " ".join(
+        car_context.get(k, "") for k in
+        ("claim_questions", "gap_questions", "suspicious_questions")
+    ).strip()
+    if asked:
+        lines.append(f"The buyer wanted these points covered: {asked}")
+    return "\n".join(lines)
+
+
+def analyze_audio_with_gemini(
+    audio_path: str,
+    transcript: str = "",
+    car_context: dict | None = None,
+) -> tuple:
     """
-    Upload audio to Gemini Files API once, then try each model in order.
-    Upload happens before the model loop (one upload, shared across retries).
+    Rotate over every Gemini API key (out-of-quota keys fall through to the next)
+    and, within each key, try each model in order. The audio is re-uploaded per
+    key since Gemini files are scoped to the key's project.
+    Optionally accepts a car_context dict (listing fields and/or the Retell
+    dynamic variables) so the score is grounded in the specific listing.
     Returns (analysis_dict, model_id_used).
     """
-    client    = _get_gemini_client()
+    keys = _get_gemini_keys()
+    if not keys:
+        raise RuntimeError(
+            "No Gemini API key found. Add GEMINI_API_KEY (and optionally "
+            "GEMINI_API_KEY_2, GEMINI_API_KEY_3, ... for auto-failover) to .env."
+        )
+
     config    = load_model_config()
     try_order = get_model_try_order(config)
 
-    # ── Upload audio once — shared across all model attempts ──────────────────
-    print(f"   Uploading audio to Gemini Files API...")
+    # Read the audio bytes once; each key gets its own upload from these bytes.
     with open(audio_path, "rb") as f:
-        audio_bytes = io.BytesIO(f.read())
-    audio_bytes.name = Path(audio_path).name
-
-    uploaded = client.files.upload(
-        file=audio_bytes,
-        config=types.UploadFileConfig(mime_type="audio/wav"),
-    )
-    while uploaded.state.name == "PROCESSING":
-        time.sleep(2)
-        uploaded = client.files.get(name=uploaded.name)
-
-    if uploaded.state.name != "ACTIVE":
-        raise RuntimeError(f"Gemini file upload failed — state: {uploaded.state.name}")
-
-    print(f"   Upload complete. Trying models...")
-
-    contents = [uploaded]
-    if transcript:
-        contents.append(f"\n\nTranscript for reference:\n{transcript}\n")
-    contents.append(ANALYSIS_PROMPT)
+        audio_raw = f.read()
+    audio_name = Path(audio_path).name
 
     last_error = None
 
-    try:
-        for i, model_id in enumerate(try_order):
-            label = "(preferred)" if i == 0 else f"(fallback #{i})"
-            print(f"   Trying {model_id} {label}...")
+    for key_idx, api_key in enumerate(keys, 1):
+        client = genai.Client(api_key=api_key)
 
-            try:
-                response = client.models.generate_content(
-                    model=model_id,
-                    contents=contents,
-                )
+        # ── Upload audio to THIS key's project ────────────────────────────────
+        print(f"   Uploading audio to Gemini (key {key_idx}/{len(keys)})...")
+        try:
+            audio_bytes = io.BytesIO(audio_raw)
+            audio_bytes.name = audio_name
+            uploaded = client.files.upload(
+                file=audio_bytes,
+                config=types.UploadFileConfig(mime_type="audio/wav"),
+            )
+            while uploaded.state.name == "PROCESSING":
+                time.sleep(2)
+                uploaded = client.files.get(name=uploaded.name)
+            if uploaded.state.name != "ACTIVE":
+                raise RuntimeError(f"upload state {uploaded.state.name}")
+        except Exception as e:
+            error_str  = str(e)
+            last_error = error_str
+            if _is_quota_error(error_str):
+                print(f"   Key {key_idx} quota/limit on upload — trying next key...")
+            else:
+                print(f"   Upload failed on key {key_idx}: {error_str[:120]} — trying next key...")
+            continue
 
-                raw = response.text.strip()
-                # Strip markdown fences if model ignores the no-markdown instruction
-                if raw.startswith("```"):
-                    lines = [l for l in raw.split("\n") if not l.strip().startswith("```")]
-                    raw   = "\n".join(lines).strip()
+        contents = [uploaded]
+        if transcript:
+            contents.append(f"\n\nTranscript for reference:\n{transcript}\n")
+        car_block = _build_car_context(car_context)
+        if car_block:
+            contents.append(car_block)
+        contents.append(ANALYSIS_PROMPT)
+
+        try:
+            for i, model_id in enumerate(try_order):
+                label = "(preferred)" if i == 0 else f"(fallback #{i})"
+                print(f"   Key {key_idx} · {model_id} {label}...")
 
                 try:
-                    result = json.loads(raw)
-                except json.JSONDecodeError as e:
-                    result = {"parse_error": str(e), "raw_response": raw, "seller_credibility_score": None}
+                    response = client.models.generate_content(
+                        model=model_id,
+                        contents=contents,
+                    )
 
-                config["last_successful_model"] = model_id
-                if i > 0:
+                    raw = response.text.strip()
+                    if raw.startswith("```"):
+                        lines = [l for l in raw.split("\n") if not l.strip().startswith("```")]
+                        raw   = "\n".join(lines).strip()
+
+                    try:
+                        result = json.loads(raw)
+                    except json.JSONDecodeError as e:
+                        result = {"parse_error": str(e), "raw_response": raw, "seller_credibility_score": None}
+
+                    config["last_successful_model"] = model_id
                     config["last_failure"] = None
-                save_model_config(config)
+                    save_model_config(config)
 
-                print(f"   Success with {model_id}")
-                return result, model_id
+                    print(f"   Success with {model_id} (key {key_idx})")
+                    return result, model_id
 
-            except Exception as e:
-                error_str   = str(e)
-                last_error  = error_str
-                is_overload = any(x in error_str for x in [
-                    "503", "429", "UNAVAILABLE", "quota", "404", "NOT_FOUND"
-                ])
+                except Exception as e:
+                    error_str  = str(e)
+                    last_error = error_str
 
-                if "503" in error_str:
-                    error_type = "503 high demand"
-                elif "429" in error_str:
-                    error_type = "429 rate limit"
-                elif "404" in error_str or "NOT_FOUND" in error_str:
-                    error_type = "404 model not found"
-                else:
-                    error_type = "unknown error"
+                    if "503" in error_str:
+                        error_type = "503 high demand"
+                    elif _is_quota_error(error_str):
+                        error_type = "429 quota / rate limit"
+                    elif "404" in error_str or "NOT_FOUND" in error_str:
+                        error_type = "404 model not found"
+                    else:
+                        error_type = "unknown error"
 
-                failure_entry = {
-                    "model":      model_id,
-                    "error_type": error_type,
-                    "error":      error_str[:300],
-                    "timestamp":  datetime.now().isoformat(),
-                }
-                config["last_failure"] = failure_entry
-                history = config.get("failure_history", [])
-                history.append(failure_entry)
-                config["failure_history"] = history[-20:]
-                save_model_config(config)
+                    failure_entry = {
+                        "model":      model_id,
+                        "key_index":  key_idx,
+                        "error_type": error_type,
+                        "error":      error_str[:300],
+                        "timestamp":  datetime.now().isoformat(),
+                    }
+                    config["last_failure"] = failure_entry
+                    history = config.get("failure_history", [])
+                    history.append(failure_entry)
+                    config["failure_history"] = history[-20:]
+                    save_model_config(config)
 
-                if is_overload and i < len(try_order) - 1:
-                    next_model = try_order[i + 1]
-                    print(f"   {model_id} unavailable ({error_type})")
-                    print(f"   Switching to {next_model}...")
-                    time.sleep(3)
-                elif is_overload:
-                    raise RuntimeError(f"All Gemini models exhausted. Last error: {error_str}")
-                else:
-                    raise
+                    print(f"   {model_id} failed ({error_type}) — trying next...")
+                    time.sleep(2)
+                    continue
 
-    finally:
-        # Always clean up the uploaded file, even if analysis fails
-        try:
-            client.files.delete(name=uploaded.name)
-        except Exception:
-            pass
+        finally:
+            # Always clean up this key's uploaded file before moving on.
+            try:
+                client.files.delete(name=uploaded.name)
+            except Exception:
+                pass
 
-    raise RuntimeError(f"All models failed. Last: {last_error}")
+    raise RuntimeError(f"All Gemini keys/models exhausted. Last error: {last_error}")
 
 
 # ── Main Analyze Function ─────────────────────────────────────────────────────
 
-def analyze_call(call_id: str, force: bool = False) -> dict:
+def analyze_call(call_id: str, force: bool = False, car_context: dict | None = None) -> dict:
     if not force and is_already_analyzed(call_id):
         cached = get_cached_result(call_id)
         score  = cached.get("seller_credibility_score", "?")
@@ -471,6 +534,12 @@ def analyze_call(call_id: str, force: bool = False) -> dict:
     transcript    = call.get("transcript", "")
     duration_ms   = call.get("duration_ms", 0)
 
+    # If no context passed, fall back to the variables Retell stored for the call
+    # so a standalone re-analysis still knows which car it was about.
+    if car_context is None:
+        car_context = call.get("retell_llm_dynamic_variables") or \
+                      call.get("collected_dynamic_variables")
+
     if not recording_url:
         print(f"   No recording available yet for {call_id}")
         return {"success": False, "call_id": call_id, "error": "no recording", "available": False}
@@ -479,7 +548,7 @@ def analyze_call(call_id: str, force: bool = False) -> dict:
     try:
         print(f"   Downloading recording...")
         audio_path           = download_recording(recording_url, call_id)
-        analysis, model_used = analyze_audio_with_gemini(audio_path, transcript)
+        analysis, model_used = analyze_audio_with_gemini(audio_path, transcript, car_context)
         score                = analysis.get("seller_credibility_score", "N/A")
         print(f"   Done — Score: {score}/100 | Model: {model_used}")
 
